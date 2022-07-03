@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="WARN">
+    <properties>
+<!--        <property name="kafka_bootstrap_servers"></property>-->
+        <property name="kafka_retries">3</property>
+        <property name="kafka_linger_ms">1000</property> <!-- 如果你想减少请求的数量，你可以将linger.ms设置为大于某个值的东西 -->
+        <property name="kafka_batch_size">2048</property>	<!-- 缓冲区大小 -->
+        <property name="kafka_buffer_memory">10485760</property> <!-- 控制生产者可用于缓冲的存储器的总量 -->
+    </properties>
+
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{YYYY-MM-dd HH:mm:ss} [%t] %-5p %c{1}:%L - %msg%n" />
+        </Console>
+
+        <!-- 这个会打印出所有的info及以下级别的信息，每次大小超过size，则这size大小的日志会自动存入按年份-月份建立的文件夹下面并进行压缩，作为存档-->
+        <RollingFile name="RollingFileInfo" fileName="logs/info.log"
+                     filePattern="logs/$${date:yyyy-MM}/info-%d{yyyy-MM-dd}-%i.log">
+            <!--控制台只输出level及以上级别的信息（onMatch），其他的直接拒绝（onMismatch）-->
+            <ThresholdFilter level="info" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+        </RollingFile>
+        <RollingFile name="RollingFileWarn" fileName="logs/warn.log"
+                     filePattern="logs/$${date:yyyy-MM}/warn-%d{yyyy-MM-dd}-%i.log">
+            <ThresholdFilter level="warn" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+            <!-- DefaultRolloverStrategy属性如不设置，则默认为最多同一文件夹下7个文件，这里设置了20 -->
+            <DefaultRolloverStrategy max="20"/>
+        </RollingFile>
+        <RollingFile name="RollingFileError" fileName="logs/error.log"
+                     filePattern="logs/$${date:yyyy-MM}/error-%d{yyyy-MM-dd}-%i.log">
+            <ThresholdFilter level="error" onMatch="ACCEPT" onMismatch="DENY"/>
+            <PatternLayout pattern="[%d{yyyy-MM-dd HH:mm:ss:SSS}] [%p] - %l - %m%n"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="100 MB"/>
+            </Policies>
+        </RollingFile>
+        <Kafka name="kafkaAppender" topic="${sys:log_kafka_topic}" syncSend="false">
+            <Filters>
+<!--                <MarkerFilter marker="kafkaAppender" onMatch="ACCEPT" onMismatch="DENY"/>-->
+                <ThresholdFilter level="INFO" onMatch="ACCEPT" onMismatch="DENY" />
+            </Filters>
+
+<!--            <PatternLayout charset="UTF-8" pattern="%d{yyyy-MM-dd HH:mm:ss SSS} [%t] %-5level %logger{36} %marker - %msg%n"/>-->
+            <PatternLayout charset="UTF-8" pattern='{
+            "logLevel": "%level",
+            "logInfo": "[%t] %logger{36} %marker - %msg",
+            "eventTime": "%date{ISO8601}",
+            "hostName": "${sys:HOSTNAME}",
+            "appId":"AidgrgdPackingStatement"
+
+            }'/>
+            <Property name="bootstrap.servers" value="${sys:log_kafka_bootstrap_servers}"/>
+            <Property name="retries" value="${kafka_retries}" />
+            <Property name="linger.ms" value="${kafka_linger_ms}" />
+            <Property name="batch.size" value="${kafka_batch_size}" />
+            <Property name="buffer.memory" value="${kafka_buffer_memory}" />
+        </Kafka>
+
+
+
+        <Async name="async">
+            <AppenderRef ref="kafkaAppender"/>
+        </Async>
+
+
+    </Appenders>
+    <Loggers>
+        <!-- name 必填且唯一 -->
+        <!-- level 设置输出最低级别 默认error -->
+        <!-- additivity 是否在父Logger输出, 默认 true -->
+<!--        <Logger name="com.start" level="trace" additivity="true">-->
+<!--            <AppenderRef ref="async" />-->
+<!--        </Logger>-->
+
+        <Root level="info">
+            <AppenderRef ref="Console" />
+            <appender-ref ref="RollingFileInfo"/>
+            <appender-ref ref="RollingFileWarn"/>
+            <appender-ref ref="RollingFileError"/>
+            <appender-ref ref="async"/>
+        </Root>
+    </Loggers>
+</Configuration>
