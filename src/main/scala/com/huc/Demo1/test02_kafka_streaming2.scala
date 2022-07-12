@@ -28,8 +28,8 @@ object test02_kafka_streaming2 {
     val lineDStream: DStream[String] = kafkaDStream.map(_.value())
     lineDStream.print()
     import spark.implicits._
-    val data: Unit = lineDStream.foreachRDD(rdd => {
-      val df: DataFrame = rdd.map(x => {
+    lineDStream.foreachRDD(rdd => {
+      val value = rdd.map(x => {
         val json: JSONObject = JSON.parseObject(x)
         val header: JSONObject = json.getJSONObject("header")
         var appName: AnyRef = header.get("appName")
@@ -117,14 +117,17 @@ object test02_kafka_streaming2 {
               elem._1, elem._2, elem._3, elem._4, elem._5, elem._6, elem._7, elem._8, elem._9))
           }
           data_arr
-        }).toDF("traceId", "appName", "deviceType", "version", "ip", "sysTime", "userAgent", "txnType", "txnCode", "txnSubCode", "refCode", "txnValue", "event", "subEvent", "userId", "extend")
+        })
+
+      val df = value
+        .toDF("traceId", "appName", "deviceType", "version", "ip", "sysTime", "userAgent", "txnType", "txnCode", "txnSubCode", "refCode", "txnValue", "event", "subEvent", "userId", "extend")
 
       df.createOrReplaceTempView("test")
 
       spark.sql(
         """
           |select * from test
-          |""".stripMargin).show()
+          |""".stripMargin).show(false)
 
     })
 
