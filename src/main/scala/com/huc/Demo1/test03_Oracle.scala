@@ -20,6 +20,7 @@ object test03_Oracle {
     val props: Properties = new Properties()
     props.setProperty("user", "xqwu")
     props.setProperty("password", "easipass")
+    props.setProperty("driver","oracle.jdbc.driver.OracleDriver")
 
     val df: DataFrame = sparksession.read.jdbc("jdbc:oracle:thin:@192.168.129.149:1521/test12c", "DM.TRACK_BIZ_STATUS_BILL", props)
 

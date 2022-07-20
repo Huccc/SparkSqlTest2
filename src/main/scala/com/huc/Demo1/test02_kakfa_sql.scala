@@ -9,13 +9,14 @@ object test02_kakfa_sql {
 
     session.sql(
       """
-        |CREATE TABLE topic_test
+        |CREATE TABLE kafka_data_exchange_kafka_topic
         |USING kafka
         |OPTIONS (
         |  kafka.bootstrap.servers '192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092',
-        |  subscribe 'eds_source_test',
-        |  kafka.group.id 'EDS',
-        |  format 'json'
+        |  subscribe 'mt1101_test_bill',
+        |  startingOffsets 'earliest',
+        |  endingOffsets 'latest',
+        |  failOnDataLoss 'false'
         |)
         |""".stripMargin)
 
@@ -23,7 +24,7 @@ object test02_kakfa_sql {
       """
         |select
         |  *
-        |from topic_test
+        |from kafka_data_exchange_kafka_topic
         |""".stripMargin).show(false)
 
     session.close()

@@ -21,8 +21,9 @@ object SendKafkaDemo2 {
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf().setMaster("local").setAppName("app")
     val sc: SparkContext = new SparkContext(conf)
-    val rdd: RDD[String] = sc.parallelize(Array("1", "2", "3", "4"))
-    val rdd2: RDD[String] = sc.textFile("input/test2.json")
+//    val rdd: RDD[String] = sc.parallelize(Array("1", "2", "3", "4"))
+//    val rdd2: RDD[String] = sc.textFile("input/test2.json")
+    val rdd2: RDD[String] = sc.textFile("input/DESCLR_2.json")
     // 广播KafkaSink
     val kafkaProducer: Broadcast[KafkaSink[String, String]] = {
       val kafkaProducerConfig = {
@@ -35,7 +36,7 @@ object SendKafkaDemo2 {
       sc.broadcast(KafkaSink[String, String](kafkaProducerConfig))
     }
     rdd2.foreach(record => {
-      kafkaProducer.value.send("eds_source_test", record)
+      kafkaProducer.value.send("test_eds", record)
     })
   }
 

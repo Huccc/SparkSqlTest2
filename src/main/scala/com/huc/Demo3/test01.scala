@@ -12,6 +12,14 @@ package com.huc.Demo3
  */
 object test01 {
   def main(args: Array[String]): Unit = {
+    var a: Int = 1
+    for (i <- 0 until 10) {
+      println(i)
 
+    }
+
+    for (a <- 0 to 10) {
+      println("a=: " + a)
+    }
   }
 }
