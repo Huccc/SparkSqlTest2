@@ -12,9 +12,11 @@ object test02_kafka {
     val dataFrame: DataFrame = session.read
       .format("kafka")
       .option("kafka.bootstrap.servers", "192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092")
+//      .option("startingOffsets","group offsets")
+//      .option("endingOffsets","latest")
       .option("subscribe", "mt1101_test_bill")
-      .option("key.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
-      .option("value.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+//      .option("key.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+//      .option("value.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
       .load()
 
     dataFrame.createOrReplaceTempView("test")
