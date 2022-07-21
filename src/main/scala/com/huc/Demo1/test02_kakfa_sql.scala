@@ -45,7 +45,8 @@ object test02_kakfa_sql {
       col("SUBSCRIBE_TYPE"),
       get_json_object(col("DATA"), "$.VSL_IMO_NO").alias("VSL_IMO_NO"),
       get_json_object(col("DATA"), "$.VSL_NAME").alias("VSL_NAME")
-    ).show(false)
+    ).filter("")
+      .show(false)
 
     spark.close()
   }
