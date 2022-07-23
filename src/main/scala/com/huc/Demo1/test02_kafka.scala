@@ -12,14 +12,27 @@ object test02_kafka {
     val dataFrame: DataFrame = session.read
       .format("kafka")
       .option("kafka.bootstrap.servers", "192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092")
-//      .option("startingOffsets","group offsets")
-//      .option("endingOffsets","latest")
+      //      .option("startingOffsets","group offsets")
+      //      .option("endingOffsets","latest")
       .option("subscribe", "mt1101_test_bill")
-//      .option("key.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
-//      .option("value.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+      //      .option("key.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+      //      .option("value.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
       .load()
 
-    dataFrame.createOrReplaceTempView("test")
+    val df = session
+      .read
+      .format("kafka")
+//      .option("kafka.bootstrap.servers", "host1:port1,host2:port2")
+      .option("kafka.bootstrap.servers", "192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092")
+      .option("subscribe", "topic1,topic2")
+      .option("startingOffsets", """{"test_eds1":{"0":0,"1":0,"2",0}}""")
+//      .option("endingOffsets", """{"topic1":{"0":50,"1":-1},"topic2":{"0":-1}}""")
+      .load()
+
+//    df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
+//      .as[(String, String)]
+
+    df.createOrReplaceTempView("test")
 
     session.sql(
       """
