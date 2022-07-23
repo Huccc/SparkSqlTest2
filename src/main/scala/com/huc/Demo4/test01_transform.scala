@@ -1,12 +1,16 @@
 package com.huc.Demo4
 
-import com.huc.utils.KafkaUtil
+import com.alibaba.fastjson._
+import com.huc.KafkaSink.demo1.KafkaSink
+import com.huc.utils.{KafkaSink, KafkaUtil}
 import org.apache.kafka.clients.consumer.ConsumerRecord
+import org.apache.kafka.clients.producer.ProducerConfig
+import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import com.alibaba.fastjson._
 
 import java.util
 import java.util.Properties
@@ -22,9 +26,9 @@ import scala.collection.mutable.ArrayBuffer
  * @Email : 1310259975@qq.com
  * @Description : 
  */
-object test01 {
+object test01_transform {
   def main(args: Array[String]): Unit = {
-    val conf = new SparkConf()
+    val conf: SparkConf = new SparkConf()
       .setMaster("local[*]")
       .setAppName("test01")
 
@@ -151,8 +155,7 @@ object test01 {
 
     import spark.implicits._
 
-
-    value.foreachRDD(rdd => {
+    val value1: DStream[Row] = value.transform(rdd => {
       val dfKafka: DataFrame = rdd.toDF("msgId", "bizId", "msgType", "bizUniqueId", "destination", "FunctionCode", "SenderCode", "ReceiverCode", "FileCreateTime", "MessageType", "Description", "vslName", "voyage", "VslImoNo", "billNo", "vesselDeclarationPreNo", "ctnNo", "UnitType", "CertCtnrztnNo", "CtnrGrossWt", "PkgQtyInCtnr", "CtnrSizeType")
 
       dfKafka.createOrReplaceTempView("dfKafka")
@@ -234,15 +237,17 @@ object test01 {
 
       val testdf: DataFrame = spark.sql("select * from tmp_table4")
 
-      testdf.show(false)
+      //      testdf.show(false)
 
-      // 将dataframe中的字段拿出来 放到数组中
-      val arrcolumn: Array[String] = testdf.schema.fieldNames
-      // 对dataframe中的每条数据进行处理
-      val dataMap = new util.HashMap[String, Object]()
-      for (elem <- arrcolumn) {
-        //将每个字段的名和字段对应的值 写入到Map中
-      }
+      testdf.rdd
+
+      //      // 将dataframe中的字段拿出来 放到数组中
+      //      val arrcolumn: Array[String] = testdf.schema.fieldNames
+      //      // 对dataframe中的每条数据进行处理
+      //      val dataMap = new util.HashMap[String, Object]()
+      //      for (elem <- arrcolumn) {
+      //        //将每个字段的名和字段对应的值 写入到Map中
+      //      }
 
       //      spark.sql(
       //        """

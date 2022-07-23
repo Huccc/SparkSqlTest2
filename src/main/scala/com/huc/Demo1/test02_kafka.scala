@@ -1,40 +1,38 @@
 package com.huc.Demo1
 
+import org.apache.spark
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.codehaus.jackson.map.deser.std.StringDeserializer
 
 object test02_kafka {
   def main(args: Array[String]): Unit = {
     val conf: SparkConf = new SparkConf().setMaster("local[*]").setAppName("sparksql")
-    val session: SparkSession = SparkSession.builder().config(conf).getOrCreate()
+    val spark: SparkSession = SparkSession.builder().config(conf).getOrCreate()
 
-    val dataFrame: DataFrame = session.read
-      .format("kafka")
-      .option("kafka.bootstrap.servers", "192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092")
-      //      .option("startingOffsets","group offsets")
-      //      .option("endingOffsets","latest")
-      .option("subscribe", "mt1101_test_bill")
-      //      .option("key.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
-      //      .option("value.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
-      .load()
+//    val dataFrame: DataFrame = session.read
+//      .format("kafka")
+//      .option("kafka.bootstrap.servers", "192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092")
+//      //      .option("startingOffsets","group offsets")
+//      //      .option("endingOffsets","latest")
+//      .option("subscribe", "mt1101_test_bill")
+//      //      .option("key.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+//      //      .option("value.deserializer","org.apache.kafka.common.serialization.StringDeserializer")
+//      .load()
 
-    val df = session
+    val df = spark
       .read
       .format("kafka")
-//      .option("kafka.bootstrap.servers", "host1:port1,host2:port2")
       .option("kafka.bootstrap.servers", "192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092")
-      .option("subscribe", "topic1,topic2")
-      .option("startingOffsets", """{"test_eds1":{"0":0,"1":0,"2",0}}""")
-//      .option("endingOffsets", """{"topic1":{"0":50,"1":-1},"topic2":{"0":-1}}""")
+      .option("subscribe", "test_eds1")
+      .option("startingOffsets", """{"test_eds1":{"0":0,"1":0,"2":0}""")
+//      .option("endingOffsets", """{"test_eds1":{"0":1,"1":0,"2":1}""")
       .load()
-
 //    df.selectExpr("CAST(key AS STRING)", "CAST(value AS STRING)")
 //      .as[(String, String)]
 
     df.createOrReplaceTempView("test")
 
-    session.sql(
+    spark.sql(
       """
         |select
         |  cast(value as String)
@@ -42,7 +40,7 @@ object test02_kafka {
         |  test
         |""".stripMargin).show(false)
 
-    session.close()
+    spark.close()
   }
 
 }

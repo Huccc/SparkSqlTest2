@@ -1,15 +1,11 @@
-package com.huc.KafkaSink
+package com.huc.KafkaSink.demo1
 
 import org.apache.kafka.common.serialization.StringSerializer
 import org.apache.spark.SparkConf
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.SparkSession
-import org.json4s.{Formats, NoTypeHints}
-
-import com.huc.KafkaSink.KafkaSink
-
-
 import org.json4s.jackson.Serialization
+import org.json4s.{Formats, NoTypeHints}
 
 import java.util.Properties
 
@@ -21,7 +17,7 @@ import java.util.Properties
  * @createTime : 2022/7/6 15:08
  * @author : huc
  * @Email : 1310259975@qq.com
- * @Description : 
+ * @Description :
  */
 object SendKafkaDemo {
   def main(args: Array[String]): Unit = {

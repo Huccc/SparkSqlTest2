@@ -1,32 +1,42 @@
-package com.huc.Demo4
+package com.huc.KafkaSink.demo2
 
-import com.huc.utils.KafkaUtil
+import com.alibaba.fastjson.{JSON, JSONArray, JSONObject}
+import com.google.gson.Gson
+import com.huc.utils.{KafkaSink, KafkaUtil}
 import org.apache.kafka.clients.consumer.ConsumerRecord
-import org.apache.spark.SparkConf
-import org.apache.spark.sql.{DataFrame, SparkSession}
-import org.apache.spark.streaming.dstream.{DStream, InputDStream}
+import org.apache.kafka.clients.producer.{ProducerConfig, RecordMetadata}
+import org.apache.kafka.common.serialization.StringSerializer
+import org.apache.spark.{SPARK_BRANCH, SparkConf}
+import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 import org.apache.spark.streaming.{Seconds, StreamingContext}
-import com.alibaba.fastjson._
+import org.apache.spark.streaming.dstream.{DStream, InputDStream}
 
-import java.util
 import java.util.Properties
+import java.util.concurrent.Future
 import scala.collection.mutable.ArrayBuffer
+import com.alibaba.fastjson
+import com.alibaba.fastjson.serializer.SerializerFeature
+import org.apache.commons.lang.StringEscapeUtils
+import org.apache.spark.rdd.RDD
 
 /**
  * Created with IntelliJ IDEA.
  *
  * @Project : SparkSqlTest2
- * @Package : com.huc.Demo4
- * @createTime : 2022/7/18 14:38
+ * @Package : com.huc.KafkaSink.demo2
+ * @createTime : 2022/7/23 16:20
  * @author : huc
  * @Email : 1310259975@qq.com
  * @Description : 
  */
-object test01 {
+object writeKafka {
   def main(args: Array[String]): Unit = {
     val conf = new SparkConf()
       .setMaster("local[*]")
       .setAppName("test01")
+      .set("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
+
 
     val ssc = new StreamingContext(conf, Seconds(5))
 
@@ -144,132 +154,83 @@ object test01 {
     dfOraCopace.createOrReplaceTempView("COPACE")
     dfOraCbcs.createOrReplaceTempView("CL_BIZ_CERT_SCHEDULE")
 
-    spark.sql(
-      """
-        |select * from CL_BIZ_CERT_SCHEDULE
-        |""".stripMargin)
-
     import spark.implicits._
 
-
-    value.foreachRDD(rdd => {
+    val stream: DStream[Row] = value.transform(rdd => {
       val dfKafka: DataFrame = rdd.toDF("msgId", "bizId", "msgType", "bizUniqueId", "destination", "FunctionCode", "SenderCode", "ReceiverCode", "FileCreateTime", "MessageType", "Description", "vslName", "voyage", "VslImoNo", "billNo", "vesselDeclarationPreNo", "ctnNo", "UnitType", "CertCtnrztnNo", "CtnrGrossWt", "PkgQtyInCtnr", "CtnrSizeType")
 
       dfKafka.createOrReplaceTempView("dfKafka")
-
       // TODO 校验一  是否提供装箱证明书
-      spark.sql(
+      val df: DataFrame = spark.sql(
         """
           |select
           |  dfKafka.*,if(COPACE.FILE_NAME <> '','Y','N') as res_1
           |from dfKafka left join COPACE on dfKafka.CertCtnrztnNo=COPACE.CTNR_PACKING_CERT_NO and dfKafka.ctnNo=COPACE.CTNR_NO
-          |""".stripMargin).createOrReplaceTempView("tmp_table1")
-
-      // TODO 校验二  是否通过智慧海事校验
-      spark.sql(
-        """
-          |select
-          |  t1.*,
-          |  case t2.CHECK_STATE when '0' then 'Y' else 'N' END as res_2
-          |from tmp_table1 t1 left join CL_BIZ_CERT_SCHEDULE t2
-          |  on t1.ctnNo = t2.CTN_NO and t1.CertCtnrztnNo = t2.CONTAIN_CERT
-          |""".stripMargin).createOrReplaceTempView("tmp_table2")
-
-      //      spark.sql("select * from tmp_table2").show(false)
-
-      // TODO 检验三  货申报时效性
-      // todo 1.获取货申报号
-      spark.sql(
-        """
-          |select
-          |  t1.*,t2.ORG_MSG_NO
-          |from tmp_table2 t1 left join DANACK_RECEIPT t2
-          |  on t1.vesselDeclarationPreNo = t2.AA_RCP_NO
-          |""".stripMargin).createOrReplaceTempView("tmp_table3")
-
-      // todo 2.对货申报DANACK_RECEIPT做处理 取时间最新的一条记录
-      spark.sql(
-        """
-          |select
-          |  *
-          |from
-          |  (
-          |  select
-          |    ORG_MSG_NO,RCP_DESC,AA_RCP_NO,CREATE_TIME,
-          |    rank()over(partition by ORG_MSG_NO order by CREATE_TIME desc) rk
-          |  from DANACK_RECEIPT
-          |  where RCP_DESC <> '1'
-          |  )
-          |where rk = 1
-          |""".stripMargin).createOrReplaceTempView("DANACK_TMP")
-
-      // todo 3.进行货申报时效性校验，关联上且审核通过的为有效状态
-      spark.sql(
-        """
-          |select
-          |  t.*,
-          |  if(d.RCP_DESC='2','Y','N') as res_3
-          |from tmp_table3 t
-          |left join DANACK_TMP d on t.ORG_MSG_NO=d.ORG_MSG_NO
-          |""".stripMargin).createOrReplaceTempView("tmp_table4")
-
-      // TODO 检验四  货箱数据对比
-      // todo 1.对装箱证明书COPACE做处理，根据船名航次提单箱号 做件数和总重累计
-      spark.sql(
-        """
-          |select
-          |  COPACE.*,
-          |  sum(PKG_TTL_NBR)over(partition by VSL_NAME,VOYAGE,VSL_IMO_NO,CTNR_NO,BL_NO rows between UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING) PKG_TTL_NBR_sum,
-          |  sum(TTL_WT)over(partition by VSL_NAME,VOYAGE,VSL_IMO_NO,CTNR_NO,BL_NO rows between UNBOUNDED PRECEDING and UNBOUNDED FOLLOWING) TTL_WT_sum
-          |from COPACE
-          |""".stripMargin).createOrReplaceTempView("dim_copace")
-
-      //        .createOrReplaceTempView("DIM_COPACE")
-
-      // todo 箱型 件数 组件毛重
-      //      spark.sql(
-      //        """
-      //          |select
-      //          |""".stripMargin)
-
-      val testdf: DataFrame = spark.sql("select * from tmp_table4")
-
-      testdf.show(false)
-
-      // 将dataframe中的字段拿出来 放到数组中
-      val arrcolumn: Array[String] = testdf.schema.fieldNames
-      // 对dataframe中的每条数据进行处理
-      val dataMap = new util.HashMap[String, Object]()
-      for (elem <- arrcolumn) {
-        //将每个字段的名和字段对应的值 写入到Map中
-      }
-
-      //      spark.sql(
-      //        """
-      //          |select
-      //          |  vslName,
-      //          |  voyage,
-      //          |  billNo,
-      //          |  ctnNo,
-      //          |  sum(CtnrGrossWt),
-      //          |  sum(PkgQtyInCtnr)
-      //          |from tmp_table2 group by vslName,voyage,billNo,ctnNo
-      //          |""".stripMargin).show(false)
-
-
-      //      spark.sql(
-      //        """
-      //          |select
-      //          |  tmp_table2.vslName,
-      //          |  tmp_table2.voyage,
-      //          |  tmp_table2.billNo,
-      //          |  tmp_table2.ctnNo,
-      //          |  tmp_table2.CtnrGrossWt,
-      //          |  tmp_table2.PkgQtyInCtnr
-      //          |from tmp_table2 left join COPACE on tmp_table2.CertCtnrztnNo=COPACE.CTNR_PACKING_CERT_NO and tmp_table2.ctnNo=COPACE.CTNR_NO
-      //          |""".stripMargin).show(false)
+          |""".stripMargin)
+      df.rdd
     })
 
+
+    val properties = new Properties()
+    properties.setProperty("bootstrap.servers", "192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092") //修改为你的kafka地址
+    properties.setProperty("key.serializer", classOf[StringSerializer].getName)
+    properties.setProperty("value.serializer", classOf[StringSerializer].getName)
+
+    def getKafkaProducerParams(): Map[String, Object] = {
+      Map[String, Object](
+        ProducerConfig.BOOTSTRAP_SERVERS_CONFIG -> properties.getProperty("bootstrap.servers"),
+        //        ProducerConfig.ACKS_CONFIG -> properties.getProperty("kafka1.acks"),
+        //        ProducerConfig.RETRIES_CONFIG -> properties.getProperty("kafka1.retries"),
+        //        ProducerConfig.BATCH_SIZE_CONFIG -> properties.getProperty("kafka1.batch.size"),
+        //        ProducerConfig.LINGER_MS_CONFIG -> properties.getProperty("kafka1.linger.ms"),
+        //        ProducerConfig.BUFFER_MEMORY_CONFIG -> properties.getProperty("kafka1.buffer.memory"),
+        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG -> classOf[StringSerializer],
+        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG -> classOf[StringSerializer]
+      )
+    }
+
+    val gson = new Gson()
+
+    // 初始化KafkaSink,并广播
+    val kafkaProducer: Broadcast[KafkaSink[String, String]] = {
+      val kafkaProducerConfig: Map[String, Object] = getKafkaProducerParams()
+      //      if (logger.isInfoEnabled){
+      //        logger.info("kafka producer init done!")
+      //      }
+      ssc.sparkContext.broadcast(KafkaSink[String, String](kafkaProducerConfig))
+    }
+
+    stream.foreachRDD((rdd: RDD[Row]) => {
+      rdd.foreachPartition((partitionOfRecords: Iterator[Row]) => {
+        val metadata: Stream[Future[RecordMetadata]] = partitionOfRecords.map(record => {
+          val json: String = record.json
+          kafkaProducer.value.send("my-output-topic", json)
+        }).toStream
+        metadata.foreach((data: Future[RecordMetadata]) => {
+          data.get()
+        })
+      })
+    })
+
+    //    stream.foreachRDD(rdd => {
+    //      val value1: RDD[Future[RecordMetadata]] = rdd.map(record => {
+    //        //        val str: String = JSON.toJSONString(record,SerializerFeature.DisableCircularReferenceDetect)
+    //
+    //        val str: String = gson.toJson(return)
+    //        val jsonarr: JSONObject = JSON.parseObject(str).getJSONArray("values").getJSONObject(0)
+    //        val string: String = JSON.toJSONString(jsonarr, SerializerFeature.WriteNullListAsEmpty,
+    //          SerializerFeature.WriteNullStringAsEmpty,
+    //          SerializerFeature.WriteDateUseDateFormat,
+    //          SerializerFeature.WriteNullNumberAsZero,
+    //          SerializerFeature.WriteNullBooleanAsFalse,
+    //          SerializerFeature.DisableCircularReferenceDetect)
+    //
+    //        kafkaProducer.value.send("my-output-topic", string)
+    //      })
+    //      value1.foreach((data: Future[RecordMetadata]) => {
+    //        data.get()
+    //      })
+    //    })
 
     ssc.start()
     ssc.awaitTermination()

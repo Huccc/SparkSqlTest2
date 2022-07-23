@@ -1,7 +1,7 @@
 package com.huc.Demo2
 
 import com.alibaba.fastjson._
-import com.huc.KafkaSink.KafkaSink
+import com.huc.KafkaSink.demo1.KafkaSink
 import com.huc.utils.KafkaUtil
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.kafka.common.serialization.StringSerializer

@@ -1,4 +1,4 @@
-package com.huc.KafkaSink
+package com.huc.KafkaSink.demo1
 
 import org.apache.kafka.clients.producer.{KafkaProducer, ProducerRecord, RecordMetadata}
 

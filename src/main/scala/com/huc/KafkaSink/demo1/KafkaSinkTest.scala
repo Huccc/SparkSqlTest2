@@ -1,7 +1,7 @@
-package com.huc.KafkaSink
+package com.huc.KafkaSink.demo1
 
 import org.apache.kafka.common.serialization.StringSerializer
-import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.SparkConf
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.streaming.{Seconds, StreamingContext}

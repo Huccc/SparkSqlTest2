@@ -1,4 +1,4 @@
-package com.huc.Ddmo5
+package com.huc.Demo5
 
 import org.apache.spark.sql.{DataFrame, SparkSession}
 
@@ -17,7 +17,7 @@ object sqltest01 {
     val spark: SparkSession = SparkSession.builder().master("local[*]").appName(this.getClass.getSimpleName).getOrCreate()
 
     //    session.conf.set("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-    val offset= """ {"topicA":{"0": 1, "1": 1}, "topicB": {"0": 1, "1": 1}} """
+//    val offset= """ {"topicA":{"0": 1, "1": 1}, "topicB": {"0": 1, "1": 1}} """
 
     spark.sql(
       s"""
@@ -27,7 +27,7 @@ object sqltest01 {
          |  kafka.bootstrap.servers '192.168.129.121:9092,192.168.129.122:9092,192.168.129.123:9092',
          |  subscribe 'test_eds1',
          |  --format 'json',
-         |  --startingOffsets \"\"\"{"topic1":{"0":23,"1":-2},"topic2":{"0":-2}}\"\"\",
+         |  --startingOffsets 'earliest',
          |  endingOffsets 'latest'
          |)
          |""".stripMargin)
